@@ -1,0 +1,7 @@
+[package]
+name = "html_to_sheets_rust"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+scraper = "0.20.0"

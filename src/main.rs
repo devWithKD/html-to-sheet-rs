@@ -108,21 +108,40 @@ impl Data {
     }
 }
 
+#[derive(PartialEq)]
+enum OutputOpt {
+    Vector,
+    Hashmap,
+}
+
 struct Config {
     input: String,
     output: String,
+    option: OutputOpt,
 }
 
 impl Config {
     fn new(args: &[String]) -> Result<Config, &str> {
         if args.len() < 3 {
             return Err("Insufficient Arguments!");
-        } else if args.len() > 4 {
+        } else if args.len() > 5 {
             return Err("Too many arguments!");
         }
+        let opt = args.get(3);
+        let opt = match opt {
+            Some(str) => {
+                if str == "-v" {
+                    OutputOpt::Vector
+                } else {
+                    OutputOpt::Hashmap
+                }
+            }
+            None => OutputOpt::Vector,
+        };
         Ok(Config {
             input: args[1].clone(),
             output: args[2].clone(),
+            option: opt,
         })
     }
 
@@ -168,8 +187,6 @@ impl Config {
         data.remove_duplicate_columns();
 
         let mut current_data_structure = DataStruct::default();
-
-        let mut forms: HashMap<String, Form> = HashMap::new();
 
         {
             let fields_sheet1 = data.sheet1[0].clone();
@@ -312,38 +329,79 @@ impl Config {
             }
         }
 
-        for idx in 0..data.sheet1.len() {
-            let application_number_idx = current_data_structure.sheet1[2].1;
-            let application_number = data.sheet1[idx].get(application_number_idx).unwrap();
+        if self.option == OutputOpt::Hashmap {
+            let mut forms: HashMap<String, Form> = HashMap::new();
 
-            let sheet_ds = current_data_structure.clone();
+            for idx in 1..data.sheet1.len() {
+                let application_number_idx = current_data_structure.sheet1[2].1;
+                let application_number = data.sheet1[idx].get(application_number_idx).unwrap();
 
-            let mut form = Form::default();
-            for field in sheet_ds.sheet1 {
-                let val = data.sheet1[idx][field.1].clone();
-                form.sheet1.push((field.0, val));
-            }
-            for field in sheet_ds.sheet2 {
-                let val = data.sheet2[idx][field.1].clone();
-                form.sheet2.push((field.0, val))
-            }
-            for field in sheet_ds.sheet3 {
-                let val = data.sheet3[idx][field.1].clone();
-                form.sheet3.push((field.0, val))
-            }
-            for field in sheet_ds.sheet4 {
-                let val = data.sheet4[idx][field.1].clone();
-                form.sheet4.push((field.0, val))
-            }
-            for field in sheet_ds.sheet5 {
-                let val = data.sheet5[idx][field.1].clone();
-                form.sheet5.push((field.0, val))
+                let sheet_ds = current_data_structure.clone();
+
+                let mut form = Form::default();
+                for field in sheet_ds.sheet1 {
+                    let val = data.sheet1[idx][field.1].clone();
+                    form.sheet1.push((field.0, val));
+                }
+                for field in sheet_ds.sheet2 {
+                    let val = data.sheet2[idx][field.1].clone();
+                    form.sheet2.push((field.0, val))
+                }
+                for field in sheet_ds.sheet3 {
+                    let val = data.sheet3[idx][field.1].clone();
+                    form.sheet3.push((field.0, val))
+                }
+                for field in sheet_ds.sheet4 {
+                    let val = data.sheet4[idx][field.1].clone();
+                    form.sheet4.push((field.0, val))
+                }
+                for field in sheet_ds.sheet5 {
+                    let val = data.sheet5[idx][field.1].clone();
+                    form.sheet5.push((field.0, val))
+                }
+
+                forms.insert(application_number.to_owned(), form);
             }
 
-            forms.insert(application_number.to_owned(), form);
+            fs::write(&self.output, json!(forms).to_string()).unwrap();
         }
 
-        fs::write(&self.output, json!(forms).to_string()).unwrap();
+        if self.option == OutputOpt::Vector {
+            let mut forms: Vec<Form> = Vec::new();
+
+            for idx in 1..data.sheet1.len() {
+                // let application_number_idx = current_data_structure.sheet1[2].1;
+                // let application_number = data.sheet1[idx].get(application_number_idx).unwrap();
+
+                let sheet_ds = current_data_structure.clone();
+
+                let mut form = Form::default();
+                for field in sheet_ds.sheet1 {
+                    let val = data.sheet1[idx][field.1].clone();
+                    form.sheet1.push((field.0, val));
+                }
+                for field in sheet_ds.sheet2 {
+                    let val = data.sheet2[idx][field.1].clone();
+                    form.sheet2.push((field.0, val))
+                }
+                for field in sheet_ds.sheet3 {
+                    let val = data.sheet3[idx][field.1].clone();
+                    form.sheet3.push((field.0, val))
+                }
+                for field in sheet_ds.sheet4 {
+                    let val = data.sheet4[idx][field.1].clone();
+                    form.sheet4.push((field.0, val))
+                }
+                for field in sheet_ds.sheet5 {
+                    let val = data.sheet5[idx][field.1].clone();
+                    form.sheet5.push((field.0, val))
+                }
+
+                forms.push(form);
+            }
+
+            fs::write(&self.output, json!(forms).to_string()).unwrap();
+        }
 
         Ok(())
     }

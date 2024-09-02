@@ -1,10 +1,16 @@
-use html_to_sheets_rust::{
+use html_to_json::{
     EXPECTED_SHEET1, EXPECTED_SHEET2, EXPECTED_SHEET3, EXPECTED_SHEET4, EXPECTED_SHEET5,
 };
 use scraper::selectable::Selectable;
 use scraper::{Html, Selector};
 use serde::{Deserialize, Serialize};
-use std::{env, error::Error, fmt, fs, process};
+use serde_json::{self, json};
+use std::{
+    collections::{HashMap, HashSet},
+    env,
+    error::Error,
+    fmt, fs, process,
+};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -41,7 +47,16 @@ impl fmt::Display for CustomError {
 
 impl Error for CustomError {}
 
-#[derive(Default, Debug)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+struct DataStruct {
+    sheet1: Vec<(String, usize)>,
+    sheet2: Vec<(String, usize)>,
+    sheet3: Vec<(String, usize)>,
+    sheet4: Vec<(String, usize)>,
+    sheet5: Vec<(String, usize)>,
+}
+
+#[derive(Default, Debug, Serialize, Deserialize)]
 struct Data {
     sheet1: Vec<Vec<String>>,
     sheet2: Vec<Vec<String>>,
@@ -50,23 +65,76 @@ struct Data {
     sheet5: Vec<Vec<String>>,
 }
 
+impl Data {
+    fn remove_duplicate_columns(&mut self) {
+        self.sheet1 = Self::filter_columns(&self.sheet1);
+        self.sheet2 = Self::filter_columns(&self.sheet2);
+        self.sheet3 = Self::filter_columns(&self.sheet3);
+        self.sheet4 = Self::filter_columns(&self.sheet4);
+        self.sheet5 = Self::filter_columns(&self.sheet5);
+    }
+
+    fn filter_columns(sheet: &Vec<Vec<String>>) -> Vec<Vec<String>> {
+        if sheet.is_empty() || sheet[0].is_empty() {
+            return sheet.clone();
+        }
+
+        let mut unique_columns: Vec<Vec<String>> = Vec::new();
+        let mut seen: HashSet<Vec<String>> = HashSet::new();
+
+        for col_idx in 0..sheet[0].len() {
+            let mut column: Vec<String> = Vec::new();
+            for row in sheet {
+                column.push(row[col_idx].clone());
+            }
+
+            if !seen.contains(&column) {
+                seen.insert(column.clone());
+                unique_columns.push(column);
+            }
+        }
+
+        // Reconstruct the sheet with unique columns
+        let mut filtered_sheet = Vec::new();
+        for row_idx in 0..sheet.len() {
+            let mut new_row = Vec::new();
+            for column in &unique_columns {
+                new_row.push(column[row_idx].clone());
+            }
+            filtered_sheet.push(new_row);
+        }
+
+        filtered_sheet
+    }
+}
+
 struct Config {
     input: String,
-    // output: String,
+    output: String,
 }
 
 impl Config {
     fn new(args: &[String]) -> Result<Config, &str> {
-        if args.len() < 2 {
+        if args.len() < 3 {
             return Err("Insufficient Arguments!");
         } else if args.len() > 4 {
             return Err("Too many arguments!");
         }
         Ok(Config {
             input: args[1].clone(),
-            // output: args[2].clone(),
+            output: args[2].clone(),
         })
     }
+
+    // fn get_index_of_element(vec: &mut Vec<(String, bool)>, element: &str) -> Option<usize> {
+    //     for (i, x) in vec.iter_mut().enumerate() {
+    //         if x.0 == element {
+    //             x.1 = true;
+    //             return Some(i);
+    //         }
+    //     }
+    //     None
+    // }
 
     fn run(&self) -> Result<(), Box<dyn Error>> {
         let html = fs::read_to_string(&self.input)?;
@@ -96,7 +164,186 @@ impl Config {
                 sheet_ref.push(cells);
             }
         }
-        println!("{:#?}", data);
+
+        data.remove_duplicate_columns();
+
+        let mut current_data_structure = DataStruct::default();
+
+        let mut forms: HashMap<String, Form> = HashMap::new();
+
+        {
+            let fields_sheet1 = data.sheet1[0].clone();
+            let mut fields_sheet1: Vec<(String, bool)> = fields_sheet1
+                .iter()
+                .map(|val| (val.to_string(), false))
+                .collect();
+
+            for element in EXPECTED_SHEET1 {
+                let actual_idx = fields_sheet1.iter_mut().position(|x| {
+                    if x.0 == element && x.1 == false {
+                        x.1 = true;
+                        return true;
+                    } else {
+                        return false;
+                    }
+                });
+
+                let actal_idx = match actual_idx {
+                    Some(idx) => idx,
+                    None => 10000,
+                };
+                if actal_idx != 10000 {
+                    current_data_structure
+                        .sheet1
+                        .push((element.into(), actal_idx))
+                }
+            }
+        }
+
+        {
+            let fields_sheet2 = data.sheet2[0].clone();
+            let mut fields_sheet2: Vec<(String, bool)> = fields_sheet2
+                .iter()
+                .map(|val| (val.to_string(), false))
+                .collect();
+
+            for element in EXPECTED_SHEET2 {
+                let actual_idx = fields_sheet2.iter_mut().position(|x| {
+                    if x.0 == element && x.1 == false {
+                        x.1 = true;
+                        return true;
+                    } else {
+                        return false;
+                    }
+                });
+                let actal_idx = match actual_idx {
+                    Some(idx) => idx,
+                    None => 10000,
+                };
+                if actal_idx != 10000 {
+                    current_data_structure
+                        .sheet2
+                        .push((element.into(), actal_idx))
+                }
+            }
+        }
+
+        {
+            let fields_sheet3 = data.sheet3[0].clone();
+            let mut fields_sheet3: Vec<(String, bool)> = fields_sheet3
+                .iter()
+                .map(|val| (val.to_string(), false))
+                .collect();
+
+            for element in EXPECTED_SHEET3 {
+                let actual_idx = fields_sheet3.iter_mut().position(|x| {
+                    if x.0 == element && x.1 == false {
+                        x.1 = true;
+                        return true;
+                    } else {
+                        return false;
+                    }
+                });
+                let actal_idx = match actual_idx {
+                    Some(idx) => idx,
+                    None => 10000,
+                };
+                if actal_idx != 10000 {
+                    current_data_structure
+                        .sheet3
+                        .push((element.into(), actal_idx))
+                }
+            }
+        }
+
+        {
+            let fields_sheet4 = data.sheet4[0].clone();
+            let mut fields_sheet4: Vec<(String, bool)> = fields_sheet4
+                .iter()
+                .map(|val| (val.to_string(), false))
+                .collect();
+
+            for element in EXPECTED_SHEET4 {
+                let actual_idx = fields_sheet4.iter_mut().position(|x| {
+                    if x.0 == element && x.1 == false {
+                        x.1 = true;
+                        return true;
+                    } else {
+                        return false;
+                    }
+                });
+                let actal_idx = match actual_idx {
+                    Some(idx) => idx,
+                    None => 10000,
+                };
+                if actal_idx != 10000 {
+                    current_data_structure
+                        .sheet4
+                        .push((element.into(), actal_idx))
+                }
+            }
+        }
+
+        {
+            let fields_sheet5 = data.sheet5[0].clone();
+            let mut fields_sheet5: Vec<(String, bool)> = fields_sheet5
+                .iter()
+                .map(|val| (val.to_string(), false))
+                .collect();
+
+            for element in EXPECTED_SHEET5 {
+                let actual_idx = fields_sheet5.iter_mut().position(|x| {
+                    if x.0 == element && x.1 == false {
+                        x.1 = true;
+                        return true;
+                    } else {
+                        return false;
+                    }
+                });
+                let actal_idx = match actual_idx {
+                    Some(idx) => idx,
+                    None => 10000,
+                };
+                if actal_idx != 10000 {
+                    current_data_structure
+                        .sheet5
+                        .push((element.into(), actal_idx))
+                }
+            }
+        }
+
+        for idx in 0..data.sheet1.len() {
+            let application_number_idx = current_data_structure.sheet1[2].1;
+            let application_number = data.sheet1[idx].get(application_number_idx).unwrap();
+
+            let sheet_ds = current_data_structure.clone();
+
+            let mut form = Form::default();
+            for field in sheet_ds.sheet1 {
+                let val = data.sheet1[idx][field.1].clone();
+                form.sheet1.push((field.0, val));
+            }
+            for field in sheet_ds.sheet2 {
+                let val = data.sheet2[idx][field.1].clone();
+                form.sheet2.push((field.0, val))
+            }
+            for field in sheet_ds.sheet3 {
+                let val = data.sheet3[idx][field.1].clone();
+                form.sheet3.push((field.0, val))
+            }
+            for field in sheet_ds.sheet4 {
+                let val = data.sheet4[idx][field.1].clone();
+                form.sheet4.push((field.0, val))
+            }
+            for field in sheet_ds.sheet5 {
+                let val = data.sheet5[idx][field.1].clone();
+                form.sheet5.push((field.0, val))
+            }
+
+            forms.insert(application_number.to_owned(), form);
+        }
+
+        fs::write(&self.output, json!(forms).to_string()).unwrap();
 
         Ok(())
     }
